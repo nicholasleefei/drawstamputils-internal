@@ -28,11 +28,12 @@ export type IRoughEdge = {
 // 绘制印章的公司
 export type ICompany = {
     companyName: string // 公司名称
-    compression: number // 公司名称压缩比例
+    compression: number // 公司名称压缩比例（保留：仅作用于水平方向，legacy 行为）
     borderOffset: number // 边框偏移量
     textDistributionFactor: number // 字分布因子
     fontFamily: string // 字体
-    fontHeight: number // 字体高度
+    fontHeight: number // 字体大小（毫米）—— 对应 UI「字体大小」，等比缩放宽高，类似 Word 字号
+    verticalStretch?: number // 字体高度拉伸倍数（仅作用于垂直方向，宽度不变），默认 1.0
     fontWeight: string | number // 字体粗细
     fontStyle?: 'normal' | 'italic' // 字体样式（正常/倾斜）
     shape: 'ellipse' | 'rectangle' | 'rhombus' | 'organic' | 'triangle' // 印章形状

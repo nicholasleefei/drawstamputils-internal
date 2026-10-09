@@ -20,6 +20,18 @@ export class DrawCompanyUtils {
         this.textPaths = []
     }
 
+    /**
+     * 计算公司名称字形的 X/Y 双向缩放比例。
+     * - X 方向：默认 1.0，受 legacy `compression` 影响（向后兼容：旧数据的水平压缩仍生效）
+     * - Y 方向：默认 1.0，受 `verticalStretch` 控制（新增：仅改变字高，宽度不变）
+     */
+    private getCompanyScale(company: ICompany): { x: number; y: number } {
+        return {
+            x: company.compression ?? 1,
+            y: company.verticalStretch ?? 1
+        }
+    }
+
     // 添加获取文字路径的方法
     getTextPaths() {
         return this.textPaths
@@ -92,7 +104,8 @@ export class DrawCompanyUtils {
         ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${company.fontFamily}`
         ctx.fillStyle = color
         ctx.textAlign = 'center'
-        ctx.textBaseline = 'bottom'
+        // 锚定在字符顶部：verticalStretch > 1 时字底向印章中心方向延伸，而不是向外撑破外圈框。
+        ctx.textBaseline = 'top'
       
         const characters = company.companyName.split('')
         const characterCount = characters.length
@@ -116,7 +129,7 @@ export class DrawCompanyUtils {
           }else{
             halfCharCount = (characterCount + 1) / 2
           }
-      
+
           characters.forEach((char, index) => {
             // 计算当前字符的角度，包含椭圆调整
             const halfIndex = halfCharCount - index - 1
@@ -124,19 +137,23 @@ export class DrawCompanyUtils {
             const additionalAngle = adjustmentFactor * anglePerChar * company.adjustEllipseTextFactor
             const indexValue = index - halfCharCount
             const factor = indexValue / Math.abs(indexValue)
-      
+
             let angle = startAngle + direction * anglePerChar * (index + 0.5)
             angle += additionalAngle * factor
-      
+
             // 计算字符位置
             const x = centerX + Math.cos(angle) * (radiusX - fontSize - borderOffset)
             const y = centerY + Math.sin(angle) * (radiusY - fontSize - borderOffset)
-      
+
             ctx.save()
             ctx.translate(x, y)
             // 根据旋转方向调整文字旋转角度
             ctx.rotate(angle + (company.rotateDirection === 'clockwise' ? -Math.PI/2 : Math.PI/2))
-            ctx.scale(company.compression, 1)
+            // 把原点向上平移到字符 TOP（沿 local -Y 方向走一个 fontSize 距离），
+            // 使 verticalStretch 拉伸方向指向 +Y local = 向内（朝向印章中心）。
+            ctx.translate(0, -fontSize)
+            const { x: scaleX, y: scaleY } = this.getCompanyScale(company)
+            ctx.scale(scaleX, scaleY)
 
             // 创建文字路径
             const path = new Path2D()
@@ -160,14 +177,17 @@ export class DrawCompanyUtils {
           // 不调整椭圆文字时的正常绘制
           characters.forEach((char, index) => {
             const angle = startAngle + direction * anglePerChar * (index + 0.5)
-            
+
             const x = centerX + Math.cos(angle) * (radiusX - fontSize - borderOffset)
             const y = centerY + Math.sin(angle) * (radiusY - fontSize - borderOffset)
-      
+
             ctx.save()
             ctx.translate(x, y)
             ctx.rotate(angle + (company.rotateDirection === 'clockwise' ? -Math.PI/2 : Math.PI/2))
-            ctx.scale(company.compression, 1)
+            // 把原点向上平移到字符 TOP —— verticalStretch 拉伸方向指向 +Y local = 向内
+            ctx.translate(0, -fontSize)
+            const { x: scaleX, y: scaleY } = this.getCompanyScale(company)
+            ctx.scale(scaleX, scaleY)
 
             // 创建文字路径
             const path = new Path2D()
@@ -230,6 +250,7 @@ export class DrawCompanyUtils {
 
         if (textDirection === 'horizontal') {
             // 横向绘制
+            const { x: scaleX, y: scaleY } = this.getCompanyScale(company)
             this.drawHorizontalTextWithWrap(
                 ctx,
                 company.companyName,
@@ -241,10 +262,12 @@ export class DrawCompanyUtils {
                 textMargin,
                 textPosition,
                 textAlignment,
-                company.compression
+                scaleX,
+                scaleY
             )
         } else {
             // 纵向绘制
+            const { x: scaleX, y: scaleY } = this.getCompanyScale(company)
             this.drawVerticalTextWithWrap(
                 ctx,
                 company.companyName,
@@ -257,7 +280,8 @@ export class DrawCompanyUtils {
                 textPosition,
                 verticalAlignment,
                 lineSpacing,
-                company.compression
+                scaleX,
+                scaleY
             )
         }
 
@@ -278,7 +302,8 @@ export class DrawCompanyUtils {
         textMargin: number,
         position: 'top' | 'bottom' | 'left' | 'right' | 'center',
         alignment: 'left' | 'center' | 'right',
-        compression: number
+        xScale: number,
+        yScale: number
     ) {
         ctx.textBaseline = 'middle'
         ctx.textAlign = 'center'
@@ -294,7 +319,7 @@ export class DrawCompanyUtils {
 
         for (const char of characters) {
             const metrics = ctx.measureText(char)
-            const charWidth = metrics.width * compression
+            const charWidth = metrics.width * xScale
 
             if (currentLineWidth + charWidth > availableWidth && currentLine.length > 0) {
                 // 当前行已满，开始新行
@@ -340,7 +365,7 @@ export class DrawCompanyUtils {
                 // 计算行的总宽度
                 const lineCharWidths = lineChars.map(char => {
                     const metrics = ctx.measureText(char)
-                    return metrics.width * compression
+                    return metrics.width * xScale
                 })
                 const lineTotalWidth = lineCharWidths.reduce((sum, w) => sum + w, 0)
 
@@ -361,7 +386,7 @@ export class DrawCompanyUtils {
                     ctx.save()
                     ctx.translate(x, charX)
                     ctx.rotate(position === 'left' ? -Math.PI / 2 : Math.PI / 2)
-                    ctx.scale(compression, 1)
+                    ctx.scale(xScale, yScale)
 
                     const metrics = ctx.measureText(char)
                     const path = new Path2D()
@@ -391,7 +416,7 @@ export class DrawCompanyUtils {
                 // 计算行的总宽度
                 const lineCharWidths = lineChars.map(char => {
                     const metrics = ctx.measureText(char)
-                    return metrics.width * compression
+                    return metrics.width * xScale
                 })
                 const lineTotalWidth = lineCharWidths.reduce((sum, w) => sum + w, 0)
 
@@ -411,7 +436,7 @@ export class DrawCompanyUtils {
 
                     ctx.save()
                     ctx.translate(charX, lineY)
-                    ctx.scale(compression, 1)
+                    ctx.scale(xScale, yScale)
 
                     const metrics = ctx.measureText(char)
                     const path = new Path2D()
@@ -563,7 +588,8 @@ export class DrawCompanyUtils {
         position: 'top' | 'bottom' | 'left' | 'right' | 'center',
         alignment: 'top' | 'center' | 'bottom',
         lineSpacing: number,
-        compression: number
+        xScale: number,
+        yScale: number
     ) {
         ctx.textBaseline = 'middle'
         ctx.textAlign = 'center'
@@ -642,7 +668,7 @@ export class DrawCompanyUtils {
                     ctx.save()
                     ctx.translate(charY, y)
                     ctx.rotate(position === 'top' ? Math.PI / 2 : -Math.PI / 2)
-                    ctx.scale(compression, 1)
+                    ctx.scale(xScale, yScale)
 
                     const metrics = ctx.measureText(char)
                     const path = new Path2D()
@@ -687,7 +713,7 @@ export class DrawCompanyUtils {
 
                     ctx.save()
                     ctx.translate(columnX, charY)
-                    ctx.scale(compression, 1)
+                    ctx.scale(xScale, yScale)
 
                     const metrics = ctx.measureText(char)
                     const path = new Path2D()

@@ -177,6 +177,25 @@
           <div class="range-section">
             <div class="range-item">
               <div class="range-header">
+                <span class="range-label-text">{{ t('stamp.company.verticalStretch') }}</span>
+                <span class="range-value-display">[ {{ getVerticalStretch(company).toFixed(2) }} x ]</span>
+              </div>
+              <div class="range-container">
+                <button type="button" class="range-btn" @click.stop="adjustVerticalStretch(index, -0.05)">◀</button>
+                <input
+                  type="range"
+                  :value="getVerticalStretch(company)"
+                  min="0.5"
+                  max="3"
+                  step="0.05"
+                  @input="onVerticalStretchInput(index, $event)"
+                />
+                <button type="button" class="range-btn" @click.stop="adjustVerticalStretch(index, 0.05)">▶</button>
+              </div>
+              <span class="help-text">{{ t('stamp.company.verticalStretchHint') }}</span>
+            </div>
+            <div class="range-item">
+              <div class="range-header">
                 <span class="range-label-text">{{ t('stamp.company.compression') }}</span>
                 <span class="range-value-display">[ {{ company.compression.toFixed(2) }} ]</span>
               </div>
@@ -371,6 +390,29 @@ const onNumberInput = (index: number, field: keyof ICompany, event: Event) => {
   }, index)
 }
 
+// 字体高度（垂直拉伸）输入：当未显式设置 verticalStretch 时，按 1.0（不拉伸）作为默认值显示
+const getVerticalStretch = (company: ICompany): number => {
+  if (company.verticalStretch !== undefined) {
+    return Number(company.verticalStretch.toFixed(2))
+  }
+  return 1
+}
+
+const onVerticalStretchInput = (index: number, event: Event) => {
+  const value = Number((event.target as HTMLInputElement).value)
+  updateConfig((company) => {
+    company.verticalStretch = value
+  }, index)
+}
+
+const adjustVerticalStretch = (index: number, delta: number) => {
+  updateConfig((company) => {
+    const current = company.verticalStretch !== undefined ? company.verticalStretch : 1
+    const newValue = Math.max(0.5, Math.min(3, current + delta))
+    company.verticalStretch = newValue
+  }, index)
+}
+
 const onStartAngleInput = (index: number, event: Event) => {
   const degrees = Number((event.target as HTMLInputElement).value)
   const radians = degrees * Math.PI / 180
@@ -505,6 +547,7 @@ const addCompany = () => {
         textDistributionFactor: 3,
         fontFamily: last?.fontFamily || 'SimSun',
         fontHeight: last?.fontHeight || 4.2,
+        verticalStretch: last?.verticalStretch ?? 1,
         fontWeight: last?.fontWeight || 'normal',
         color: config.primaryColor || '#d40000',
         shape: currentShape,
@@ -531,6 +574,7 @@ const addCompany = () => {
         textDistributionFactor: 3,
         fontFamily: last?.fontFamily || 'SimSun',
         fontHeight: last?.fontHeight || 4.2,
+        verticalStretch: last?.verticalStretch ?? 1,
         fontWeight: last?.fontWeight || 'normal',
         color: config.primaryColor || '#d40000',
         shape: 'ellipse',

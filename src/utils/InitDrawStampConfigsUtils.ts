@@ -37,6 +37,7 @@ export class InitDrawStampConfigsUtils {
         textDistributionFactor: 5,
         fontFamily: 'SimSun',
         fontHeight: 4.2,
+        verticalStretch: 1,
         fontWeight: 'normal',
         shape: 'ellipse',
         adjustEllipseText: false,
@@ -160,6 +161,7 @@ export class InitDrawStampConfigsUtils {
             textDistributionFactor: 3, // 将默认值从20改为10
             fontFamily: 'SimSun',
             fontHeight: 4.2,
+            verticalStretch: 1,
             fontWeight: 'normal',
             shape: 'ellipse',
             adjustEllipseText: true,
